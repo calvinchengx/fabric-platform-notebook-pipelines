@@ -698,3 +698,127 @@ def test_the_steps_reach_the_stack_this_platform_publishes():
         assert resolved(var, {port_var: moved}) == f"https://localhost:{moved}", (
             f"{port_var} moves the container but not {var}"
         )
+
+
+def test_every_digest_pinned_image_moves_with_its_version():
+    """A digest left behind is worse than no digest at all.
+
+    Docker ignores the tag in `repo:tag@sha256:...` and fetches the DIGEST. So a
+    release run that bumped the versions and left the digests would pull the
+    previous images while the summary named the new release — the very
+    "verified a release nobody tested" failure `set_release.py` exists to
+    prevent, reintroduced one level down where it is harder to see.
+
+    `set_digests` is exercised with a stub resolver: the rule under test is that
+    every pinned prefix is rewritten, not that the registry answers.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import set_release
+
+    text = (ROOT / "versions.env").read_text(encoding="utf-8")
+    fake = "sha256:" + "b" * 64
+    original = set_release.digest_of
+    try:
+        set_release.digest_of = lambda image, tag: fake
+        new, moved = set_release.set_digests(text, "9.9.9")
+    finally:
+        set_release.digest_of = original
+
+    assert set(moved) == set(set_release.PINS), moved
+    for prefix in set_release.PINS:
+        assert re.search(rf"^{prefix}_DIGEST={fake}$", new, re.M), prefix
+
+
+def test_every_release_tracked_image_is_digest_pinned():
+    """The allowlist and the pin list must not drift apart.
+
+    `TRACKS_THE_RELEASE` says which versions a release moves; `PINS` says which
+    images are fetched by digest. An image in the first and not the second is
+    pinned by a tag that its own publisher documents as NOT an identity
+    (fabric-emulator's scripts/check_image_digests.py). The reverse would leave
+    a digest nobody updates.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from set_release import PINS, TRACKS_THE_RELEASE
+
+    tracked = {k[: -len("_VERSION")] for k in TRACKS_THE_RELEASE}
+    assert tracked == set(PINS), (
+        f"release-tracked but not digest-pinned: {sorted(tracked - set(PINS))}; "
+        f"digest-pinned but not release-tracked: {sorted(set(PINS) - tracked)}"
+    )
+
+
+def test_the_compose_file_fetches_those_images_by_digest():
+    """The pin has to reach the thing that pulls, not just versions.env."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from set_release import PINS
+
+    compose = (ROOT / "compose" / "docker-compose.yml").read_text(encoding="utf-8")
+    for prefix, image in PINS.items():
+        for line in compose.splitlines():
+            if f"image: {image}:" in line:
+                assert f"@${{{prefix}_DIGEST" in line, (
+                    f"{image} is pulled by tag alone:\n  {line.strip()}"
+                )
+                break
+        else:
+            raise AssertionError(f"{image} is not referenced in the compose file")
+
+
+def test_a_release_run_writes_the_versions_AND_the_digests(tmp_path):
+    """End to end through `main()`, because that is where the wiring can be cut.
+
+    CAUGHT BY MUTATION: deleting the `set_digests` call from `main()` left every
+    other test in this file passing, because they exercise `set_digests`
+    directly. A release would then have written fresh versions beside stale
+    digests, and docker would have pulled the stale ones — the failure silently
+    restored by removing one line.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import set_release
+
+    versions = tmp_path / "versions.env"
+    versions.write_text(
+        (ROOT / "versions.env").read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    fake = "sha256:" + "c" * 64
+    saved = (set_release.VERSIONS, set_release.digest_of, sys.argv)
+    try:
+        set_release.VERSIONS = versions
+        set_release.digest_of = lambda image, tag: fake
+        sys.argv = ["set_release.py", "9.9.9"]
+        assert set_release.main() == 0
+    finally:
+        set_release.VERSIONS, set_release.digest_of, sys.argv = saved
+
+    written = versions.read_text(encoding="utf-8")
+    for key in set_release.TRACKS_THE_RELEASE:
+        assert re.search(rf"^{key}=9\.9\.9$", written, re.M), key
+    for prefix in set_release.PINS:
+        assert re.search(rf"^{prefix}_DIGEST={fake}$", written, re.M), (
+            f"{prefix} kept a stale digest beside a fresh tag"
+        )
+
+
+def test_every_pullable_image_in_every_compose_file_is_digest_pinned():
+    """All three compose files, every `image:` line, with exemptions in place.
+
+    Broader than `test_the_compose_file_fetches_those_images_by_digest`, which
+    only checks the images a release retags. This one catches a service added
+    later, and it caught the governance overlay — openmetadata and opensearch
+    were pulled by tag while the main file was fully pinned.
+
+    `compose/terminal.yml` is the exemption: it exists to point a filmed run at
+    an unreleased `:dev` build, so a digest there would defeat the overlay.
+    """
+    for path in sorted((ROOT / "compose").glob("*.yml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped.startswith("image:"):
+                continue
+            if "digest-exempt:" in "\n".join(lines[max(0, i - 2) : i]):
+                continue
+            assert "@${" in stripped or "@sha256:" in stripped, (
+                f"{path.name}: pulled by tag alone: {stripped}"
+            )

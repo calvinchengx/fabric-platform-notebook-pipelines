@@ -21,6 +21,7 @@ what was tested without any of them being told separately.
 
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -29,6 +30,63 @@ VERSIONS = ROOT / "versions.env"
 # The keys the emulator's release tags in lockstep. Anything not listed here
 # ships on its own cadence and must NOT be moved by a fabric-emulator release.
 TRACKS_THE_RELEASE = ("FABRIC_EMULATOR_VERSION", "SAIL_VERSION", "SPARK_AGENT_VERSION")
+
+# THE DIGEST MOVES WITH THE TAG, or the pin is worse than no pin at all. Docker
+# ignores the tag in `repo:tag@sha256:...` and fetches the digest, so a run that
+# bumped the versions and left the digests behind would pull the PREVIOUS images
+# while the summary named the new release -- the same "verified a release nobody
+# tested" failure this script was written to prevent, one level down.
+#
+# var prefix -> the image whose tag that prefix's _VERSION supplies.
+PINS = {
+    "FABRIC_EMULATOR": "ghcr.io/calvinchengx/fabric-emulator",
+    "SAIL": "ghcr.io/calvinchengx/emulator-sail",
+    "SPARK_AGENT": "ghcr.io/calvinchengx/emulator-spark-agent",
+}
+
+
+def digest_of(image: str, tag: str) -> str:
+    """Ask the registry what this tag points at RIGHT NOW.
+
+    The INDEX digest, which is what `imagetools inspect` reports for a
+    multi-arch tag. Pinning one platform's manifest instead would produce a
+    stack that runs on the CI runner and fails to pull on a developer's laptop.
+    """
+    out = subprocess.run(
+        [
+            "docker",
+            "buildx",
+            "imagetools",
+            "inspect",
+            f"{image}:{tag}",
+            "--format",
+            "{{.Manifest.Digest}}",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if out.returncode != 0 or not out.stdout.strip().startswith("sha256:"):
+        raise SystemExit(
+            f"cannot read digest for {image}:{tag}: "
+            f"{(out.stderr or out.stdout).strip()[:200]}"
+        )
+    return out.stdout.strip()
+
+
+def set_digests(text: str, version: str) -> tuple[str, dict[str, tuple[str, str]]]:
+    """Rewrite every _DIGEST to what its tag resolves to now."""
+    moved = {}
+    for prefix, image in PINS.items():
+        digest = digest_of(image, version)
+        found = re.search(rf"^{prefix}_DIGEST=(.*)$", text, re.M)
+        if not found:
+            raise SystemExit(f"{prefix}_DIGEST not found in versions.env")
+        moved[prefix] = (found.group(1).strip(), digest)
+        text = re.sub(
+            rf"^{prefix}_DIGEST=.*$", f"{prefix}_DIGEST={digest}", text, flags=re.M
+        )
+    return text, moved
+
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
 
@@ -67,10 +125,19 @@ def main() -> int:
     if missing:
         sys.exit(f"{VERSIONS.name} has no {', '.join(missing)} to set")
 
+    # Digests BEFORE the write: resolving them can fail (a tag that does not
+    # exist yet, a registry that will not answer), and failing after the file
+    # has been rewritten would leave versions.env naming a release whose images
+    # nobody confirmed are published.
+    new, digests = set_digests(new, version)
+
     VERSIONS.write_text(new, encoding="utf-8")
     for key, old in moved.items():
         note = "  (unchanged)" if old == version else ""
         print(f"  {key}: {old} -> {version}{note}")
+    for prefix, (before, after) in digests.items():
+        note = "  (unchanged)" if before == after else ""
+        print(f"  {prefix}_DIGEST: {before[:19]}… -> {after[:19]}…{note}")
     return 0
 
 
