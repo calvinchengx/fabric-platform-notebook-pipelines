@@ -794,3 +794,26 @@ def test_a_release_run_writes_the_versions_AND_the_digests(tmp_path):
     for prefix in set_release.PINS:
         assert re.search(rf"^{prefix}_DIGEST={fake}$", written, re.M), (
             f"{prefix} kept a stale digest beside a fresh tag")
+
+
+def test_every_pullable_image_in_every_compose_file_is_digest_pinned():
+    """All three compose files, every `image:` line, with exemptions in place.
+
+    Broader than `test_the_compose_file_fetches_those_images_by_digest`, which
+    only checks the images a release retags. This one catches a service added
+    later, and it caught the governance overlay — openmetadata and opensearch
+    were pulled by tag while the main file was fully pinned.
+
+    `compose/terminal.yml` is the exemption: it exists to point a filmed run at
+    an unreleased `:dev` build, so a digest there would defeat the overlay.
+    """
+    for path in sorted((ROOT / "compose").glob("*.yml")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped.startswith("image:"):
+                continue
+            if "digest-exempt:" in "\n".join(lines[max(0, i - 2):i]):
+                continue
+            assert "@${" in stripped or "@sha256:" in stripped, (
+                f"{path.name}: pulled by tag alone: {stripped}")

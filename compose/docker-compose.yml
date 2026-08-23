@@ -29,7 +29,7 @@ services:
 # moving this one's defaults is a separate decision, because its registry
 # entry and every witness that names a port would move with it.
   entra-emulator:
-    image: ghcr.io/calvinchengx/entra-emulator:${ENTRA_EMULATOR_VERSION:?see versions.env}
+    image: ghcr.io/calvinchengx/entra-emulator:${ENTRA_EMULATOR_VERSION:?see versions.env}@${ENTRA_EMULATOR_DIGEST:?see versions.env}
     environment:
       ORIGIN_MODE: compat
       PUBLIC_ORIGIN: "https://entra-emulator:8443"
@@ -41,7 +41,7 @@ services:
       retries: 10
 
   keyvault-emulator:
-    image: ghcr.io/calvinchengx/azure-keyvault-emulator:${KEYVAULT_EMULATOR_VERSION:?see versions.env}
+    image: ghcr.io/calvinchengx/azure-keyvault-emulator:${KEYVAULT_EMULATOR_VERSION:?see versions.env}@${KEYVAULT_EMULATOR_DIGEST:?see versions.env}
     depends_on:
       entra-emulator: {condition: service_healthy}
     ports: ["${KEYVAULT_PORT:-8444}:8444"]
@@ -60,7 +60,7 @@ services:
   # for convenience. Against real Fabric no capacity is created: one is named
   # in configuration and resolved.
   arm-emulator:
-    image: ghcr.io/calvinchengx/arm-emulator:${ARM_EMULATOR_VERSION:?see versions.env}
+    image: ghcr.io/calvinchengx/arm-emulator:${ARM_EMULATOR_VERSION:?see versions.env}@${ARM_EMULATOR_DIGEST:?see versions.env}
     depends_on:
       entra-emulator: {condition: service_healthy}
     ports: ["${ARM_PORT:-8445}:8445"]
@@ -197,7 +197,7 @@ services:
   # The T-SQL engine behind the Warehouse. Not an emulator invention: a Fabric
   # Warehouse IS a T-SQL engine reached over TDS, and this is a real one.
   sqlserver:
-    image: ${SQLSERVER_IMAGE:?see versions.env}
+    image: mcr.microsoft.com/mssql/server:${SQLSERVER_VERSION:?see versions.env}@${SQLSERVER_DIGEST:?see versions.env}
     platform: linux/amd64
     environment:
       ACCEPT_EULA: "Y"

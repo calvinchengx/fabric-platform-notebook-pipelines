@@ -24,12 +24,22 @@
 # run". On a stack that had been up ten hours, every OneLake list came back
 # `401 invalid token: expired` and the pipeline died at bronze. Version skew
 # across a family that ships in lockstep is its own bug.
+#
+# THESE THREE ARE DELIBERATELY UNPINNED, unlike every other image this stack
+# pulls. The overlay exists to point a filmed run at an unreleased build, so
+# `:dev` is the whole point and a digest would defeat it — the tag has to float
+# or there is nothing to override. The base compose file pins the released
+# images by digest; this overlay replaces them on purpose and only when a person
+# passes -f.
 services:
   sail:
+    # digest-exempt: an override for an unreleased build; :dev must float.
     image: ghcr.io/calvinchengx/emulator-sail:${SAIL_VERSION_OVERRIDE:-dev}
   spark-agent:
+    # digest-exempt: an override for an unreleased build; :dev must float.
     image: ghcr.io/calvinchengx/emulator-spark-agent:${SPARK_AGENT_VERSION_OVERRIDE:-dev}
   fabric-emulator:
+    # digest-exempt: an override for an unreleased build; :dev must float.
     image: ghcr.io/calvinchengx/fabric-emulator:${FABRIC_EMULATOR_VERSION_OVERRIDE:-dev}
     environment:
       FABRIC_TERMINAL_URL: "http://host.docker.internal:${TTYD_PORT:-7681}"
