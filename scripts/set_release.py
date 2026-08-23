@@ -73,7 +73,7 @@ def digest_of(image: str, tag: str) -> str:
     return out.stdout.strip()
 
 
-def set_digests(text: str, version: str) -> dict[str, tuple[str, str]]:
+def set_digests(text: str, version: str) -> tuple[str, dict[str, tuple[str, str]]]:
     """Rewrite every _DIGEST to what its tag resolves to now."""
     moved = {}
     for prefix, image in PINS.items():
