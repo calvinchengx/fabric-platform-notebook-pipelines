@@ -10,6 +10,15 @@ on:
   push: {branches: [main]}
   pull_request:
 
+# THE DEFAULT TOKEN IS NOT READ-ONLY, so say what this workflow may do.
+# CodeQL's `actions/missing-workflow-permissions` flags a job that sets none:
+# it inherits whatever the repository default is, which is a write token in
+# many configurations and is never what a build needs. Declared here rather
+# than per job, so a job added later cannot forget it; a job that genuinely
+# needs more escalates in its own `permissions:` block, which overrides this.
+permissions:
+  contents: read
+
 jobs:
   repo:
     name: make targets work
