@@ -79,7 +79,7 @@ services:
       retries: 10
 
   fabric-emulator:
-    image: ghcr.io/calvinchengx/fabric-emulator:${FABRIC_EMULATOR_VERSION:?see versions.env}
+    image: ghcr.io/calvinchengx/fabric-emulator:${FABRIC_EMULATOR_VERSION:?see versions.env}@${FABRIC_EMULATOR_DIGEST:?see versions.env}
     depends_on:
       entra-emulator: {condition: service_healthy}
       arm-emulator: {condition: service_healthy}
@@ -121,7 +121,7 @@ services:
   # The PUBLISHED image, not a build: this repository is a consumer and may only
   # use what a consumer can pull.
   sail:
-    image: ghcr.io/calvinchengx/emulator-sail:${SAIL_VERSION:?see versions.env}
+    image: ghcr.io/calvinchengx/emulator-sail:${SAIL_VERSION:?see versions.env}@${SAIL_DIGEST:?see versions.env}
     depends_on:
       fabric-emulator: {condition: service_healthy}
     ports:
@@ -150,7 +150,7 @@ services:
   # With this service the emulator executes the notebook, which is what real
   # Fabric does and one fewer thing this repository has to pretend about.
   spark-agent:
-    image: ghcr.io/calvinchengx/emulator-spark-agent:${SPARK_AGENT_VERSION:?see versions.env}
+    image: ghcr.io/calvinchengx/emulator-spark-agent:${SPARK_AGENT_VERSION:?see versions.env}@${SPARK_AGENT_DIGEST:?see versions.env}
     depends_on:
       sail: {condition: service_started}
     volumes:
