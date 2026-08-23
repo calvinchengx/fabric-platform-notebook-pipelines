@@ -53,12 +53,23 @@ def digest_of(image: str, tag: str) -> str:
     stack that runs on the CI runner and fails to pull on a developer's laptop.
     """
     out = subprocess.run(
-        ["docker", "buildx", "imagetools", "inspect", f"{image}:{tag}",
-         "--format", "{{.Manifest.Digest}}"],
-        capture_output=True, text=True)
+        [
+            "docker",
+            "buildx",
+            "imagetools",
+            "inspect",
+            f"{image}:{tag}",
+            "--format",
+            "{{.Manifest.Digest}}",
+        ],
+        capture_output=True,
+        text=True,
+    )
     if out.returncode != 0 or not out.stdout.strip().startswith("sha256:"):
-        raise SystemExit(f"cannot read digest for {image}:{tag}: "
-                         f"{(out.stderr or out.stdout).strip()[:200]}")
+        raise SystemExit(
+            f"cannot read digest for {image}:{tag}: "
+            f"{(out.stderr or out.stdout).strip()[:200]}"
+        )
     return out.stdout.strip()
 
 
@@ -71,9 +82,11 @@ def set_digests(text: str, version: str) -> dict[str, tuple[str, str]]:
         if not found:
             raise SystemExit(f"{prefix}_DIGEST not found in versions.env")
         moved[prefix] = (found.group(1).strip(), digest)
-        text = re.sub(rf"^{prefix}_DIGEST=.*$", f"{prefix}_DIGEST={digest}",
-                      text, flags=re.M)
+        text = re.sub(
+            rf"^{prefix}_DIGEST=.*$", f"{prefix}_DIGEST={digest}", text, flags=re.M
+        )
     return text, moved
+
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
 

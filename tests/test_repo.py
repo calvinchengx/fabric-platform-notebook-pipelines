@@ -744,7 +744,8 @@ def test_every_release_tracked_image_is_digest_pinned():
     tracked = {k[: -len("_VERSION")] for k in TRACKS_THE_RELEASE}
     assert tracked == set(PINS), (
         f"release-tracked but not digest-pinned: {sorted(tracked - set(PINS))}; "
-        f"digest-pinned but not release-tracked: {sorted(set(PINS) - tracked)}")
+        f"digest-pinned but not release-tracked: {sorted(set(PINS) - tracked)}"
+    )
 
 
 def test_the_compose_file_fetches_those_images_by_digest():
@@ -757,7 +758,8 @@ def test_the_compose_file_fetches_those_images_by_digest():
         for line in compose.splitlines():
             if f"image: {image}:" in line:
                 assert f"@${{{prefix}_DIGEST" in line, (
-                    f"{image} is pulled by tag alone:\n  {line.strip()}")
+                    f"{image} is pulled by tag alone:\n  {line.strip()}"
+                )
                 break
         else:
             raise AssertionError(f"{image} is not referenced in the compose file")
@@ -776,8 +778,9 @@ def test_a_release_run_writes_the_versions_AND_the_digests(tmp_path):
     import set_release
 
     versions = tmp_path / "versions.env"
-    versions.write_text((ROOT / "versions.env").read_text(encoding="utf-8"),
-                        encoding="utf-8")
+    versions.write_text(
+        (ROOT / "versions.env").read_text(encoding="utf-8"), encoding="utf-8"
+    )
     fake = "sha256:" + "c" * 64
     saved = (set_release.VERSIONS, set_release.digest_of, sys.argv)
     try:
@@ -793,7 +796,8 @@ def test_a_release_run_writes_the_versions_AND_the_digests(tmp_path):
         assert re.search(rf"^{key}=9\.9\.9$", written, re.M), key
     for prefix in set_release.PINS:
         assert re.search(rf"^{prefix}_DIGEST={fake}$", written, re.M), (
-            f"{prefix} kept a stale digest beside a fresh tag")
+            f"{prefix} kept a stale digest beside a fresh tag"
+        )
 
 
 def test_every_pullable_image_in_every_compose_file_is_digest_pinned():
@@ -813,7 +817,8 @@ def test_every_pullable_image_in_every_compose_file_is_digest_pinned():
             stripped = line.strip()
             if not stripped.startswith("image:"):
                 continue
-            if "digest-exempt:" in "\n".join(lines[max(0, i - 2):i]):
+            if "digest-exempt:" in "\n".join(lines[max(0, i - 2) : i]):
                 continue
             assert "@${" in stripped or "@sha256:" in stripped, (
-                f"{path.name}: pulled by tag alone: {stripped}")
+                f"{path.name}: pulled by tag alone: {stripped}"
+            )
