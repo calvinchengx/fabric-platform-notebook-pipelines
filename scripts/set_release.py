@@ -8,8 +8,9 @@ release nobody tested, and reports it in the emulator's own release history.
 
 THREE IMAGES MOVE, not one. `sail` and `spark-agent` are rebuilt by the same
 release workflow, but they are TAGGED for the dependency they carry, so what
-moves for them is the digest and the release label rather than the tag. Sail is the Spark engine, which decides how bronze and silver
-behave; spark-agent is what the emulator drives to run a notebook. Leaving
+moves for them is the digest and the release label rather than the tag. Sail is
+the Spark engine, which decides how bronze and silver behave; spark-agent is
+what the emulator drives to run a notebook. Leaving
 either pinned while moving the emulator would verify a new emulator against an
 old engine and call that a release test.
 
@@ -100,8 +101,10 @@ def set_digests(text: str, version: str) -> tuple[str, dict[str, tuple[str, str]
             if not re.search(rf"^{prefix}_RELEASE=", text, re.M):
                 raise SystemExit(f"{prefix}_RELEASE not found in versions.env")
             text = re.sub(
-                rf"^{prefix}_RELEASE=.*$", f"{prefix}_RELEASE={version}",
-                text, flags=re.M
+                rf"^{prefix}_RELEASE=.*$",
+                f"{prefix}_RELEASE={version}",
+                text,
+                flags=re.M,
             )
     return text, moved
 

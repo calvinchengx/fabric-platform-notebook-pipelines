@@ -1,4 +1,5 @@
-# The cells in this engine group must run the SAME the Fabric emulator and the Entra issuer it trusts, or a difference in
+# The cells in this engine group must run the SAME stack -- the Fabric emulator
+# and the Entra issuer it trusts -- or a difference in
 # their gold numbers is unattributable -- it could be the orchestrator or it
 # could be the engine, and nobody could say which.
 #
