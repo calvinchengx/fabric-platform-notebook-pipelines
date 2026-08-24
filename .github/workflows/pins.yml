@@ -61,10 +61,12 @@ jobs:
           for sib in fabric-platform-airflow3 fabric-platform-airflow-builtin; do
             curl -fsSL "https://raw.githubusercontent.com/calvinchengx/$sib/main/versions.env" -o /tmp/$sib.env
             echo "--- $sib ---"
-            for name in FABRIC_EMULATOR ENTRA_EMULATOR; do
+            for name in FABRIC_EMULATOR ENTRA_EMULATOR SAIL_ENGINE SPARK_CLIENT; do
               # BOTH halves. A version that agrees while the digest does not is
               # two cells pulling different bytes under the same label.
-              for half in VERSION DIGEST; do
+              halves="VERSION DIGEST"
+            case $name in SAIL_ENGINE|SPARK_CLIENT) halves="VERSION DIGEST RELEASE";; esac
+            for half in $halves; do
                 var="${name}_${half}"
                 mine=$(eval echo \$$var)
                 theirs=$(grep -E "^$var=" /tmp/$sib.env | cut -d= -f2- || true)
@@ -78,5 +80,51 @@ jobs:
                 fi
               done
             done
+          done
+          exit $fail
+
+      - name: the release label matches what versions.env claims
+        run: |
+          set -a; . ./versions.env; set +a
+          fail=0
+          # THREE THINGS THE TAG CANNOT TELL YOU, checked against the image.
+          #
+          # emulator-sail and emulator-spark-agent are tagged for the DEPENDENCY
+          # they carry, so `0.7.0` says which Sail is inside and nothing about
+          # the launcher beside it -- which moves every emulator release and is
+          # republished under that same tag.
+          for pair in "SAIL_ENGINE emulator-sail" "SPARK_CLIENT emulator-spark-agent"; do
+            set -- $pair; name=$1; img=ghcr.io/calvinchengx/$2
+            v=$(eval echo \$${name}_VERSION)
+            d=$(eval echo \$${name}_DIGEST)
+            r=$(eval echo \$${name}_RELEASE)
+
+            # 1. The tag still names THIS build. If the dependency moved on --
+            #    pysail 0.7.0 -> 0.8.0 -- the old tag stops pointing here and the
+            #    pin quietly keeps an engine nobody chose.
+            actual=$(docker buildx imagetools inspect "$img:$v" --format '{{.Manifest.Digest}}' 2>/dev/null || true)
+            if [ -z "$actual" ]; then
+              echo "::error::$img:$v does not resolve -- has the dependency version moved?"; fail=1
+            elif [ "$actual" != "$d" ]; then
+              echo "::error::$img:$v now resolves to $actual, but ${name}_DIGEST pins $d. The tag was republished, or the dependency moved."; fail=1
+            fi
+
+            # 2. _RELEASE is DERIVED. Read it off the image rather than trusting
+            #    the file, or it is just a comment that happens to look checked.
+            label=$(docker buildx imagetools inspect "$img@$d" --format '{{json .Image}}' 2>/dev/null \
+              | python3 -c "import json,sys;d=json.load(sys.stdin);v={((i.get('config') or {}).get('Labels') or {}).get('org.opencontainers.image.version') for i in d.values()};v.discard(None);print(sorted(v)[0] if len(v)==1 else '')" || true)
+            if [ -z "$label" ]; then
+              echo "::error::$img@$d carries no single org.opencontainers.image.version label"; fail=1
+            elif [ "$label" != "$r" ]; then
+              echo "::error::${name}_RELEASE says $r but the image says $label"; fail=1
+            fi
+
+            # 3. The engine came from the emulator release we run. Without this,
+            #    a bumped dependency tag can leave the engine a release behind
+            #    while every version string still reads correct.
+            if [ "$r" != "$FABRIC_EMULATOR_VERSION" ]; then
+              echo "::error::${name}_RELEASE is $r but FABRIC_EMULATOR_VERSION is $FABRIC_EMULATOR_VERSION -- engine and emulator are from different releases"; fail=1
+            fi
+            [ "$fail" = 0 ] && echo "ok $name: tag $v -> $d, packaged by $label"
           done
           exit $fail
