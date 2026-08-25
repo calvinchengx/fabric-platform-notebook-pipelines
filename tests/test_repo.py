@@ -71,7 +71,9 @@ def test_compose_reads_every_pin():
     # same tag. Its reader is the pin check, which takes the label off the
     # pinned digest and fails if this file disagrees -- so the rule here is
     # unchanged, a pin nothing reads is still a comment, and the reader is CI.
-    pin_check = (ROOT / ".github" / "workflows" / "pins.yml").read_text(encoding="utf-8")
+    pin_check = (ROOT / ".github" / "workflows" / "pins.yml").read_text(
+        encoding="utf-8"
+    )
     for k in _pins():
         if k.endswith("_RELEASE"):
             assert k[: -len("_RELEASE")] in pin_check, f"{k} is pinned but never used"
