@@ -34,10 +34,10 @@
 services:
   sail:
     # digest-exempt: an override for an unreleased build; :dev must float.
-    image: ghcr.io/calvinchengx/emulator-sail:${SAIL_VERSION_OVERRIDE:-dev}
+    image: ghcr.io/calvinchengx/emulator-sail:${SAIL_ENGINE_VERSION_OVERRIDE:-dev}
   spark-agent:
     # digest-exempt: an override for an unreleased build; :dev must float.
-    image: ghcr.io/calvinchengx/emulator-spark-agent:${SPARK_AGENT_VERSION_OVERRIDE:-dev}
+    image: ghcr.io/calvinchengx/emulator-spark-agent:${SPARK_CLIENT_VERSION_OVERRIDE:-dev}
   fabric-emulator:
     # digest-exempt: an override for an unreleased build; :dev must float.
     image: ghcr.io/calvinchengx/fabric-emulator:${FABRIC_EMULATOR_VERSION_OVERRIDE:-dev}

@@ -64,7 +64,20 @@ def test_compose_reads_every_pin():
     composed = "".join(
         p.read_text(encoding="utf-8") for p in (ROOT / "compose").glob("*.yml")
     )
+    # A _RELEASE is not an image reference and compose must NOT substitute one.
+    # It records which fabric-emulator release built an image whose tag names a
+    # dependency instead: `emulator-sail:0.7.0` says which Sail is inside and
+    # nothing about the launcher beside it, which moves every release under that
+    # same tag. Its reader is the pin check, which takes the label off the
+    # pinned digest and fails if this file disagrees -- so the rule here is
+    # unchanged, a pin nothing reads is still a comment, and the reader is CI.
+    pin_check = (ROOT / ".github" / "workflows" / "pins.yml").read_text(
+        encoding="utf-8"
+    )
     for k in _pins():
+        if k.endswith("_RELEASE"):
+            assert k[: -len("_RELEASE")] in pin_check, f"{k} is pinned but never used"
+            continue
         assert "${" + k in composed, f"{k} is pinned but never used"
 
 
@@ -739,12 +752,22 @@ def test_every_release_tracked_image_is_digest_pinned():
     a digest nobody updates.
     """
     sys.path.insert(0, str(ROOT / "scripts"))
-    from set_release import PINS, TRACKS_THE_RELEASE
+    from set_release import CARRIES_A_DEPENDENCY_TAG, PINS, TRACKS_THE_RELEASE
 
     tracked = {k[: -len("_VERSION")] for k in TRACKS_THE_RELEASE}
-    assert tracked == set(PINS), (
-        f"release-tracked but not digest-pinned: {sorted(tracked - set(PINS))}; "
-        f"digest-pinned but not release-tracked: {sorted(set(PINS) - tracked)}"
+    # Still: nothing whose _VERSION a release moves may be pulled by tag alone.
+    assert tracked <= set(PINS), (
+        f"release-tracked but not digest-pinned: {sorted(tracked - set(PINS))}"
+    )
+    # And still: no digest may be left with nobody to update it. What changed is
+    # HOW an image can be accounted for. sail and spark-agent are tagged for the
+    # dependency they carry, so a release moves their _DIGEST and _RELEASE while
+    # their _VERSION stays put -- set_digests walks PINS, so those digests are
+    # updated; it is only the tag that does not move.
+    dependency_tagged = set(CARRIES_A_DEPENDENCY_TAG)
+    assert set(PINS) == tracked | dependency_tagged, (
+        "digest-pinned but neither release-tracked nor dependency-tagged: "
+        f"{sorted(set(PINS) - tracked - dependency_tagged)}"
     )
 
 

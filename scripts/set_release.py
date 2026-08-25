@@ -6,10 +6,11 @@ carries a working platform". A run that fired on 0.13.1 but verified the 0.13.0
 in `versions.env` would be worse than no run at all: it reports success for a
 release nobody tested, and reports it in the emulator's own release history.
 
-THREE VERSIONS MOVE, not one. `sail` and `spark-agent` are built by the same
-release workflow with `type=semver,pattern={{version}}`, so they carry the
-emulator's tag. Sail is the Spark engine, which decides how bronze and silver
-behave; spark-agent is what the emulator drives to run a notebook. Leaving
+THREE IMAGES MOVE, not one. `sail` and `spark-agent` are rebuilt by the same
+release workflow, but they are TAGGED for the dependency they carry, so what
+moves for them is the digest and the release label rather than the tag. Sail is
+the Spark engine, which decides how bronze and silver behave; spark-agent is
+what the emulator drives to run a notebook. Leaving
 either pinned while moving the emulator would verify a new emulator against an
 old engine and call that a release test.
 
@@ -29,7 +30,14 @@ VERSIONS = ROOT / "versions.env"
 
 # The keys the emulator's release tags in lockstep. Anything not listed here
 # ships on its own cadence and must NOT be moved by a fabric-emulator release.
-TRACKS_THE_RELEASE = ("FABRIC_EMULATOR_VERSION", "SAIL_VERSION", "SPARK_AGENT_VERSION")
+TRACKS_THE_RELEASE = ("FABRIC_EMULATOR_VERSION",)
+
+# sail and spark-agent are ALSO rebuilt by every emulator release, but their
+# tag names the dependency they carry, not the release -- so what moves for
+# them is the digest and the _RELEASE label, not the tag. Listing their
+# _VERSION above would retag them onto the emulator's number and lose the one
+# thing the tag is for: saying which Sail is inside.
+CARRIES_A_DEPENDENCY_TAG = ("SAIL_ENGINE", "SPARK_CLIENT")
 
 # THE DIGEST MOVES WITH THE TAG, or the pin is worse than no pin at all. Docker
 # ignores the tag in `repo:tag@sha256:...` and fetches the digest, so a run that
@@ -40,8 +48,8 @@ TRACKS_THE_RELEASE = ("FABRIC_EMULATOR_VERSION", "SAIL_VERSION", "SPARK_AGENT_VE
 # var prefix -> the image whose tag that prefix's _VERSION supplies.
 PINS = {
     "FABRIC_EMULATOR": "ghcr.io/calvinchengx/fabric-emulator",
-    "SAIL": "ghcr.io/calvinchengx/emulator-sail",
-    "SPARK_AGENT": "ghcr.io/calvinchengx/emulator-spark-agent",
+    "SAIL_ENGINE": "ghcr.io/calvinchengx/emulator-sail",
+    "SPARK_CLIENT": "ghcr.io/calvinchengx/emulator-spark-agent",
 }
 
 
@@ -85,6 +93,19 @@ def set_digests(text: str, version: str) -> tuple[str, dict[str, tuple[str, str]
         text = re.sub(
             rf"^{prefix}_DIGEST=.*$", f"{prefix}_DIGEST={digest}", text, flags=re.M
         )
+        # Resolved by the RELEASE tag above, so by construction this build is
+        # the one that release published -- record which, since the tag these
+        # two are pinned by cannot say it. CI re-reads the label off the digest
+        # and fails if this disagrees, so the claim is checked, not trusted.
+        if prefix in CARRIES_A_DEPENDENCY_TAG:
+            if not re.search(rf"^{prefix}_RELEASE=", text, re.M):
+                raise SystemExit(f"{prefix}_RELEASE not found in versions.env")
+            text = re.sub(
+                rf"^{prefix}_RELEASE=.*$",
+                f"{prefix}_RELEASE={version}",
+                text,
+                flags=re.M,
+            )
     return text, moved
 
 
