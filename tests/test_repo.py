@@ -845,3 +845,35 @@ def test_every_pullable_image_in_every_compose_file_is_digest_pinned():
             assert "@${" in stripped or "@sha256:" in stripped, (
                 f"{path.name}: pulled by tag alone: {stripped}"
             )
+
+
+def test_the_catalog_url_the_product_gets_is_the_port_compose_publishes():
+    """The platform tells the product where the catalog is. It must be right.
+
+    Every service the steps address is exported from the Makefile, because the
+    platform is the only thing that knows which port it bound. OM_URL was the
+    one missing, and the gap became a failure the day the catalog moved off
+    8585 to stop colliding with the two sibling platforms: `govern.py` kept its
+    own default of localhost:8585, and the medallion ran to step 14 of 16
+    before dying on "Connection refused" against a port nothing was listening
+    on. Nine acceptance runs failed that way.
+
+    The two literals are COMPARED rather than trusted. They live in different
+    files and nothing else holds them together, which is the shape that drifted
+    in the first place.
+    """
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    compose = (ROOT / "compose" / "governance.yml").read_text(encoding="utf-8")
+
+    handed = r"^export OM_URL := http://localhost:\$\(or \$\(OM_PORT\),(\d+)\)"
+    exported = re.search(handed, makefile, re.M)
+    assert exported, (
+        "the Makefile does not export OM_URL, so the product falls back to its "
+        "own default and cannot reach the catalog this platform published"
+    )
+    published = re.search(r'ports: \["\$\{OM_PORT:-(\d+)\}:8585"\]', compose)
+    assert published, "compose no longer publishes OpenMetadata on a named port"
+    assert exported.group(1) == published.group(1), (
+        f"the Makefile hands the product port {exported.group(1)} and compose "
+        f"publishes {published.group(1)}"
+    )

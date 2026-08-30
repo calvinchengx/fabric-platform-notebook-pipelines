@@ -82,6 +82,16 @@ export FABRIC_EMULATOR_URL := https://localhost:$(or $(FABRIC_PORT),9443)
 export ENTRA_EMULATOR_URL  := https://localhost:$(or $(ENTRA_PORT),8443)
 export VAULT_EMULATOR_URL  := https://localhost:$(or $(KEYVAULT_PORT),8444)
 export FABRIC_ARM_URL      := https://localhost:$(or $(ARM_PORT),8445)
+# THE CATALOG, on the port THIS platform publishes it on.
+#
+# Every URL above is exported for the same reason: the product's steps address
+# a service by env var, and the platform is the only thing that knows which
+# port it bound. OM_URL was the one missing, and the omission became a failure
+# the day the catalog moved off 8585 to avoid colliding with the two sibling
+# platforms -- `govern.py` kept its own default of localhost:8585, so the
+# medallion ran to step 14 of 16 and died on "Connection refused" against a
+# port nothing was listening on. The default here is compose's own.
+export OM_URL := http://localhost:$(or $(OM_PORT),18587)/api/v1
 
 export PLATFORM := $(CURDIR)
 # WHERE THE dbt CONTAINER FINDS THE PROJECT. The product stages its gold models
