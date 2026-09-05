@@ -138,7 +138,14 @@ capture:  ## Verify and photograph the catalog (the flow video comes from `make 
 govern:  ## Catalog the platform in OpenMetadata (also runs inside `make verify`)
 	@$(STEP) python steps/govern.py
 
+# THE PIN THE PLATFORM CANNOT SEE. versions.env pins the emulator IMAGE; the
+# product pins the client WHEEL, and since the split those live in two
+# repositories. A binary and a client that disagree about the contract is the
+# one mismatch a consumer repository exists to notice, so the check runs
+# against whatever product this platform was actually pointed at -- before any
+# step does work that a mismatch would invalidate.
 verify:  ## Run the platform end to end against the pinned release
+	@uv run --frozen --group dev python scripts/check_product_pin.py $(PRODUCT)
 	@$(STEP) python steps/pipeline.py
 
 witness: verify ## The family's one word for `verify`: run the cell, fail if it fails
