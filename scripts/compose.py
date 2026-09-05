@@ -190,7 +190,7 @@ def main():
     print("$", " ".join(cmd), f"   (fabric-emulator {rel.version()})")
     rc = subprocess.run(cmd, cwd=ROOT, env=env).returncode
     if args and args[0] == "up" and rc != 0:
-        dump_failure(cmd[:-len(args)], env)
+        dump_failure(cmd[: -len(args)], env)
     return rc
 
 
@@ -212,11 +212,11 @@ def dump_failure(base: list[str], env: dict) -> None:
     already failing, and a diagnostic that can raise would replace the failure
     it was called to explain.
     """
-    print("platform: the stack did not come up. what the containers said:",
-          flush=True)
-    subprocess.run(base + ["ps", "-a"], cwd=ROOT, env=env, check=False)
-    subprocess.run(base + ["logs", "--no-color", "--tail=80"],
-                   cwd=ROOT, env=env, check=False)
+    print("platform: the stack did not come up. what the containers said:", flush=True)
+    subprocess.run([*base, "ps", "-a"], cwd=ROOT, env=env, check=False)
+    subprocess.run(
+        [*base, "logs", "--no-color", "--tail=80"], cwd=ROOT, env=env, check=False
+    )
 
 
 if __name__ == "__main__":
