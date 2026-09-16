@@ -14,6 +14,11 @@ what the emulator drives to run a notebook. Leaving
 either pinned while moving the emulator would verify a new emulator against an
 old engine and call that a release test.
 
+THEIR _VERSION MOVES WHEN THE RELEASE BUMPS THE DEPENDENCY. This script used to
+hold it still, and v0.36.0 moved pysail 0.7.0 -> 0.7.1, leaving 0.7.0 written
+beside the 0.36.0 digest. It is now read from fabric-emulator's pyproject.toml
+at the release tag, the same pin that chose the image's tag.
+
 Rewrites in place rather than exporting environment variables, because compose
 reads `versions.env` via `--env-file` and `release_info` reads the same file.
 One file changes, and every reader — Python, compose, the summary — agrees on
@@ -24,6 +29,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 VERSIONS = ROOT / "versions.env"
@@ -33,11 +39,22 @@ VERSIONS = ROOT / "versions.env"
 TRACKS_THE_RELEASE = ("FABRIC_EMULATOR_VERSION",)
 
 # sail and spark-agent are ALSO rebuilt by every emulator release, but their
-# tag names the dependency they carry, not the release -- so what moves for
-# them is the digest and the _RELEASE label, not the tag. Listing their
-# _VERSION above would retag them onto the emulator's number and lose the one
-# thing the tag is for: saying which Sail is inside.
-CARRIES_A_DEPENDENCY_TAG = ("SAIL_ENGINE", "SPARK_CLIENT")
+# tag names the dependency they carry, not the release -- so their digest and
+# _RELEASE label follow the release, and their _VERSION follows the dependency
+# pin the release shipped. Listing their _VERSION above would retag them onto
+# the emulator's number and lose the one thing the tag is for: saying which
+# Sail is inside.
+#
+# prefix -> the pin in fabric-emulator's pyproject.toml the image is tagged
+# with. The same map as fabric-emulator's scripts/image_tags.py.
+TAGGED_BY = {"SAIL_ENGINE": "pysail", "SPARK_CLIENT": "pyspark-client"}
+CARRIES_A_DEPENDENCY_TAG = tuple(TAGGED_BY)
+
+# A TAG, not a branch: what the release was built from, and it cannot move.
+FABRIC_PYPROJECT = (
+    "https://raw.githubusercontent.com/calvinchengx/"
+    "fabric-emulator/v{release}/pyproject.toml"
+)
 
 # THE DIGEST MOVES WITH THE TAG, or the pin is worse than no pin at all. Docker
 # ignores the tag in `repo:tag@sha256:...` and fetches the digest, so a run that
@@ -112,8 +129,42 @@ def set_digests(text: str, version: str) -> tuple[str, dict[str, tuple[str, str]
 SEMVER = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
 
 
-def set_version(text: str, version: str) -> tuple[str, dict[str, str]]:
-    """Return the rewritten file and what each key moved from."""
+def fetch(url: str) -> str:
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        return resp.read().decode("utf-8")
+
+
+def carried_versions(release: str) -> dict[str, str]:
+    """The dependency version each sidecar carries in `release`.
+
+    Read with image_tags.py's own rule: exactly one `==` pin per package.
+    """
+    url = FABRIC_PYPROJECT.format(release=release)
+    try:
+        text = fetch(url)
+    except OSError as err:
+        raise SystemExit(f"cannot read {url}: {err}") from None
+    carried = {}
+    for prefix, package in TAGGED_BY.items():
+        found = set(re.findall(rf'"{re.escape(package)}==([0-9][^"]*)"', text))
+        if len(found) != 1:
+            raise SystemExit(
+                f"v{release} pins {package} as {sorted(found) or 'nothing'}; "
+                f"expected exactly one == version"
+            )
+        carried[prefix] = found.pop()
+    return carried
+
+
+def set_version(
+    text: str, version: str, carried: dict[str, str] | None = None
+) -> tuple[str, dict[str, str]]:
+    """Return the rewritten file and what each key moved from.
+
+    `carried` maps a sidecar prefix to the dependency version the release
+    ships; its _VERSION moves to that, never to `version`.
+    """
+    carried = carried or {}
     moved = {}
     lines = text.splitlines(keepends=True)
     for i, line in enumerate(lines):
@@ -125,6 +176,9 @@ def set_version(text: str, version: str) -> tuple[str, dict[str, str]]:
         if key in TRACKS_THE_RELEASE:
             moved[key] = old
             lines[i] = f"{key}={version}\n"
+        elif key.endswith("_VERSION") and key[: -len("_VERSION")] in carried:
+            moved[key] = old
+            lines[i] = f"{key}={carried[key[: -len('_VERSION')]]}\n"
     return "".join(lines), moved
 
 
@@ -139,10 +193,12 @@ def main() -> int:
     if not SEMVER.match(version):
         sys.exit(f"not a version: {version!r} — expected something like 0.13.1")
 
+    carried = carried_versions(version)
     text = VERSIONS.read_text(encoding="utf-8")
-    new, moved = set_version(text, version)
+    new, moved = set_version(text, version, carried)
 
     missing = [k for k in TRACKS_THE_RELEASE if k not in moved]
+    missing += [f"{p}_VERSION" for p in carried if f"{p}_VERSION" not in moved]
     if missing:
         sys.exit(f"{VERSIONS.name} has no {', '.join(missing)} to set")
 
@@ -154,8 +210,9 @@ def main() -> int:
 
     VERSIONS.write_text(new, encoding="utf-8")
     for key, old in moved.items():
-        note = "  (unchanged)" if old == version else ""
-        print(f"  {key}: {old} -> {version}{note}")
+        now = carried.get(key.removesuffix("_VERSION"), version)
+        note = "  (unchanged)" if old == now else ""
+        print(f"  {key}: {old} -> {now}{note}")
     for prefix, (before, after) in digests.items():
         note = "  (unchanged)" if before == after else ""
         print(f"  {prefix}_DIGEST: {before[:19]}… -> {after[:19]}…{note}")
