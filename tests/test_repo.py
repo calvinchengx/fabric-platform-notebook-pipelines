@@ -657,8 +657,10 @@ def test_no_image_comes_from_a_registry_the_family_does_not_trust():
     trusted = {
         # The family's own, and the mirrors it keeps there.
         "ghcr.io",
-        # Docker Hub, which is what a bare `name/image` resolves to.
-        "docker.io",
+        # Google's pull-through cache of Docker Hub. NOT Docker Hub itself:
+        # its token endpoint reset two family jobs on 2026-09-27, so a bare
+        # `name/image` (which resolves to docker.io) is untrusted here.
+        "mirror.gcr.io",
         "mcr.microsoft.com",
     }
 
@@ -842,7 +844,8 @@ def test_the_compose_file_fetches_those_images_by_digest():
     compose = (ROOT / "compose" / "docker-compose.yml").read_text(encoding="utf-8")
     for prefix, image in PINS.items():
         for line in compose.splitlines():
-            if f"image: {image}:" in line:
+            pulled = rf"image: (?:mirror\.gcr\.io/(?:library/)?)?{re.escape(image)}:"
+            if re.search(pulled, line):
                 assert f"@${{{prefix}_DIGEST" in line, (
                     f"{image} is pulled by tag alone:\n  {line.strip()}"
                 )

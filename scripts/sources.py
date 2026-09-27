@@ -97,7 +97,7 @@ def fragment(decl: dict, sources_dir: str, pins: dict) -> dict:
                     f"or two stacks will fight over it."
                 )
             svc = {
-                "image": f"mokapi/mokapi:{pins['MOKAPI_VERSION']}",
+                "image": f"mirror.gcr.io/mokapi/mokapi:{pins['MOKAPI_VERSION']}",
                 # The dashboard keeps every request AND its response body in
                 # memory -- for a 95 MB export that is a 246 MB JSON copy
                 # retained per call, measured. One entry per API is all the
@@ -149,7 +149,7 @@ def fragment(decl: dict, sources_dir: str, pins: dict) -> dict:
             # two of them is a snapshot wearing a stream's name.
             db, broker, connect = f"{name}-db", f"{name}-broker", f"{name}-connect"
             services[db] = {
-                "image": f"postgres:{pins['POSTGRES_VERSION']}",
+                "image": f"mirror.gcr.io/library/postgres:{pins['POSTGRES_VERSION']}",
                 # wal_level=logical is not tuning -- without it Postgres emits no
                 # logical replication stream at all and Debezium fails at
                 # connector creation with a message naming neither this setting
@@ -213,7 +213,7 @@ def fragment(decl: dict, sources_dir: str, pins: dict) -> dict:
                 },
             }
             services[connect] = {
-                "image": f"debezium/connect:{pins['DEBEZIUM_VERSION']}",
+                "image": f"mirror.gcr.io/debezium/connect:{pins['DEBEZIUM_VERSION']}",
                 "depends_on": {
                     db: {"condition": "service_healthy"},
                     broker: {"condition": "service_healthy"},

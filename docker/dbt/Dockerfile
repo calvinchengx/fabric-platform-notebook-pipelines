@@ -11,7 +11,7 @@
 # also how dbt usually runs: dbt is never hosted INSIDE Fabric, so it executes
 # on a laptop, a CI agent, or a container — and a container is the shape any
 # repeatable pipeline picks.
-FROM python:3.12-slim
+FROM mirror.gcr.io/library/python:3.12-slim
 
 # msodbcsql18 from Microsoft's repository. Dearmoring the key to a file and
 # installing it with `install` avoids the gpg --dearmor path that needs a tty.
