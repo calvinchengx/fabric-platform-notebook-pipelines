@@ -19,7 +19,7 @@ dependencies = [
     # rather than restating what the vendor already published.
     "pyyaml>=6,<7",
     "confluent-kafka>=2.6,<3",
-    "pyarrow>=18,<24",
+    "pyarrow>=18,<27",
     # delta-rs, to read a table WITHOUT holding a Spark session. bronze and
     # silver hand their transforms to Fabric now, so the only thing this process
     # still needs from a Delta table is to read the run metrics back — and
@@ -28,7 +28,7 @@ dependencies = [
     "deltalake>=0.23,<2",
     # The THIN Spark Connect client — about a megabyte, and no JVM. The full
     # pyspark distribution is not needed to drive a Connect server.
-    "pyspark-client==4.1.1",
+    "pyspark-client==4.2.0",
 ]
 
 [dependency-groups]
@@ -38,7 +38,7 @@ dependencies = [
 # pytest floor is 9.0.3, not 8: everything below it has GHSA-tied tmpdir
 # handling that Dependabot flags on this public repo. The upper bound stays,
 # for the reason above.
-dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.15", "ty>=0.0.1a1"]
+dev = ["pytest>=9.0.3,<10", "ruff>=0.14,<0.18", "ty>=0.0.1a1"]
 
 [tool.uv]
 package = false
