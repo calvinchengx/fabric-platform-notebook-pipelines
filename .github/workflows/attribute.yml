@@ -7,6 +7,7 @@
 name: Attribute
 
 on:
+  # zizmor: ignore[dangerous-triggers] -- checks out the default branch read-only, never the triggering run's head
   workflow_run:
     workflows: [Acceptance]
     types: [completed]
@@ -37,18 +38,18 @@ jobs:
     steps:
       # Nested, so the two siblings below land beside this repo rather than
       # inside it. SOURCES and PRODUCT are both `../` paths.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: fabric-platform-notebook-pipelines
       # THE VENDORS. Declared in contoso-sources and materialised from it, so
       # both workflows pull the same bytes as every other cell in the family.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-sources
           path: contoso-sources
       # THE PRODUCT THIS PLATFORM RUNS. Without PRODUCT, `make verify` points
       # at the empty ./product mount point and attributes nothing.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-data-product-fabric-notebook-pipelines
           path: contoso-data-product-fabric-notebook-pipelines

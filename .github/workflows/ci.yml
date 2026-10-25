@@ -36,19 +36,23 @@ jobs:
       run:
         working-directory: fabric-platform-notebook-pipelines
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: fabric-platform-notebook-pipelines
       # The vendors are DECLARED in contoso-sources and materialised from it.
       # Not vendorable here: the point of reading another repository's
       # declaration is that this platform's vendor list is not a copy.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-sources
           path: contoso-sources
+      # Pinned, as the sibling platforms pin it. Unpinned, uv takes the newest
+      # interpreter on the image: macOS 26 ships Homebrew's 3.15, for which
+      # psycopg-binary has no wheel, so `make lint` died installing it.
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           version: "0.11.32"
+          python-version: "3.12"
       # GNU Make is not on the Windows image. This is the same one-line install
       # the README tells a Windows user to run, so CI proves the instruction.
       - if: matrix.os == 'windows-latest'

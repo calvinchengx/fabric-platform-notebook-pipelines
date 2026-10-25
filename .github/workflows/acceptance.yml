@@ -14,6 +14,9 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Verify the released emulator end to end
@@ -28,7 +31,7 @@ jobs:
     steps:
       # Full history, and a token the later push can use. The default checkout
       # is a depth-1 detached HEAD, which cannot rebase onto a moved main.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           path: fabric-platform-notebook-pipelines
@@ -37,14 +40,14 @@ jobs:
       # This platform used to hold its own duplicate of every spec and serve.js;
       # they were byte-identical, which is exactly why nothing noticed they
       # could drift.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-sources
           path: contoso-sources
       # THE PRODUCT THIS PLATFORM RUNS. A separate repository: this one stands
       # up the emulator, the product is what runs on it. Without PRODUCT the
       # default is the empty ./product mount point.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-data-product-fabric-notebook-pipelines
           path: contoso-data-product-fabric-notebook-pipelines
@@ -59,7 +62,7 @@ jobs:
       # green by editing another repository. A SHA is also what this workflow
       # already does for every third-party action. Move it deliberately, and
       # only when the family's numbers move.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-data-product
           ref: 2cf7bae8a1e1f4a8cddd2cd5510d435e16febb3b
@@ -93,9 +96,10 @@ jobs:
         id: target
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_CLIENT_PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            version="${{ github.event.client_payload.version }}"
+            version="${GITHUB_EVENT_CLIENT_PAYLOAD_VERSION}"
             echo "dispatched for $version"
           else
             version=$(gh release view --repo calvinchengx/fabric-emulator \
