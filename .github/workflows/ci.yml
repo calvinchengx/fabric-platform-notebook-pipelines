@@ -36,13 +36,13 @@ jobs:
       run:
         working-directory: fabric-platform-notebook-pipelines
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: fabric-platform-notebook-pipelines
       # The vendors are DECLARED in contoso-sources and materialised from it.
       # Not vendorable here: the point of reading another repository's
       # declaration is that this platform's vendor list is not a copy.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: calvinchengx/contoso-sources
           path: contoso-sources
