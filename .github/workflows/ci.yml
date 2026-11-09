@@ -49,7 +49,7 @@ jobs:
       # Pinned, as the sibling platforms pin it. Unpinned, uv takes the newest
       # interpreter on the image: macOS 26 ships Homebrew's 3.15, for which
       # psycopg-binary has no wheel, so `make lint` died installing it.
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.11.32"
           python-version: "3.12"
