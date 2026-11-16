@@ -28,7 +28,7 @@ dependencies = [
     "deltalake>=0.23,<2",
     # The THIN Spark Connect client — about a megabyte, and no JVM. The full
     # pyspark distribution is not needed to drive a Connect server.
-    "pyspark-client==4.2.0",
+    "pyspark-client==4.3.0",
 ]
 
 [dependency-groups]
